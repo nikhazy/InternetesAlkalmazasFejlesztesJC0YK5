@@ -1,0 +1,124 @@
+﻿@page "/termekkezeles"
+@using InternetesAlkalmazasFejlesztesJC0YK5.Data
+@inject ApplicationDbService dbService
+
+<h3>Termék kezelése</h3>
+
+<h5>Meglévő termék kiválasztása:</h5>
+<div style="display: flex; justify-content: space-between">
+    <select class="form-control selectpicker" style="max-width:300px; display:inline" @onchange=@SelectedStationChanged>
+        <option value="base">-Új termék hozzáadása-</option>
+        @foreach (var part in activeParts)
+        {
+            <option value="@part.Id">@part.Megnevezes</option>
+        }
+    </select>
+    @if (!hozzaadas)
+    {
+        <button class="btn btn-danger" type="submit" @onclick="Delete">Törlés</button>
+    }
+</div>
+
+<!--Termék kezelés-->
+<EditForm Model="@productModel" OnValidSubmit="@HandleValidSubmit" OnInvalidSubmit="HandleInValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <div>
+        <div>
+            <label for="megnevezes" style="font-weight:bold">Megnevezés:</label>
+            <input class="form-control" style="text-align:center" type="text" name="megnevezes" value="@productModel.Megnevezes" @onchange="(x=> SetName(x.Value.ToString()))" />
+        </div>
+    </div>
+    @if (hozzaadas)
+    {
+        <button class="btn btn-primary" style="display:block; width:100%; padding: 10px; margin-top:10px" type="submit">Hozzáadás</button>
+    }
+    else
+    {
+        <button class="btn btn-primary" style="display:block; width:100%; padding: 10px; margin-top:10px" type="submit">Módosítás</button>
+    }
+</EditForm>
+<!--Termékhez tartozó alkatrészek-->
+<div>
+    @foreach (var part in partsOfTheProduct)
+    {
+
+    }
+</div>
+
+@if (message != null)
+{
+    string additionalClass = "danger";
+    if (message.Type == MessageType.Siker)
+    {
+        additionalClass = "success";
+    }
+    <div class="alert alert-@additionalClass d-flex justify-content-between">
+        @message.Text
+        <button class="btn btn-outline-info" type="submit" @onclick="@(()=>message = null)">X</button>
+    </div>
+}
+@code {
+    Product productModel;
+    List<Product> activeParts;
+    bool hozzaadas = true;
+    UserMessage message;
+    List<Part> partsOfTheProduct;
+
+    protected override void OnInitialized()
+    {
+        productModel = new Product();
+        activeParts = dbService.GetAllProducts();
+    }
+
+    private void SetName(string megnevezes)
+    {
+        message = null;
+        productModel.Megnevezes = megnevezes;
+    }
+
+    private void SelectedStationChanged(ChangeEventArgs e)
+    {
+        message = null;
+        if (e.Value.ToString() != "base")
+        {
+            productModel = activeParts.FirstOrDefault(x => x.Id.ToString() == e.Value.ToString());
+            hozzaadas = false;
+        }
+        else
+        {
+            productModel = new Product();
+            hozzaadas = true;
+        }
+    }
+
+    public void Delete()
+    {
+        string name = productModel.Megnevezes;
+        dbService.DeleteProduct(productModel.Id);
+        activeParts = dbService.GetAllProducts();
+        productModel = new Product();
+        message = new UserMessage(name + " sikeresen törölve az adatbázisból!", MessageType.Siker);
+        hozzaadas = true;
+    }
+
+    public void HandleValidSubmit()
+    {
+        dbService.AddOrUpdateProduct(productModel);
+        if (hozzaadas)
+        {
+            message = new UserMessage(productModel.Megnevezes + " sikeresen hozzáadva az adatbázishoz!", MessageType.Siker);
+            productModel = new Product();
+        }
+        else
+        {
+            message = new UserMessage(productModel.Megnevezes + " sikeresen módosítva az adatbázisban!", MessageType.Siker);
+        }
+        activeParts = dbService.GetAllProducts();
+    }
+
+    public void HandleInValidSubmit()
+    {
+        message = null;
+    }
+}

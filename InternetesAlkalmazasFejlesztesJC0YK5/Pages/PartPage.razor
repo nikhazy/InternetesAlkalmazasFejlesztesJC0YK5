@@ -1,0 +1,139 @@
+﻿@page "/alkatreszkezeles"
+@using InternetesAlkalmazasFejlesztesJC0YK5.Data
+@inject ApplicationDbService dbService
+
+<h3>Alkatrészek kezelése</h3>
+
+<h5>Meglévő alkatrész kiválasztása:</h5>
+<div style="display: flex; justify-content: space-between">
+    <select class="form-control selectpicker" style="max-width:300px; display:inline" @onchange=@SelectedStationChanged>
+        <option value="base">-Új alkatrész hozzáadása-</option>
+        @foreach (var part in activeParts)
+        {
+            <option value="@part.Id">@part.Megnevezes</option>
+        }
+    </select>
+    @if (!hozzaadas)
+    {
+        <button class="btn btn-danger" type="submit" @onclick="Delete">Törlés</button>
+    }
+</div>
+
+<EditForm Model="@partModel" OnValidSubmit="@HandleValidSubmit" OnInvalidSubmit="HandleInValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <div>
+        <div>
+            <label for="megnevezes" style="font-weight:bold">Megnevezés:</label>
+            <input class="form-control" style="text-align:center" type="text" name="megnevezes" value="@partModel.Megnevezes" @onchange="(x=> SetName(x.Value.ToString()))" />
+        </div>
+        <div>
+            <label for="suly" style="font-weight:bold">Súly (gramm):</label>
+            <input class="form-control" style="text-align:center" type="text" name="suly" value="@partModel.SulyGrammban" @onchange="(x=> SetWeight(x.Value.ToString()))" />
+        </div>
+        <div>
+            <label for="ar" style="font-weight:bold">Ár (Ft):</label>
+            <input class="form-control" style="text-align:center" type="text" name="ar" value="@partModel.Ar" @onchange="(x=> SetCost(x.Value.ToString()))" />
+        </div>
+    </div>
+    @if (hozzaadas)
+    {
+        <button class="btn btn-primary" style="display:block; width:100%; padding: 10px; margin-top:10px" type="submit">Hozzáadás</button>
+    }
+    else
+    {
+        <button class="btn btn-primary" style="display:block; width:100%; padding: 10px; margin-top:10px" type="submit">Módosítás</button>
+    }
+</EditForm>
+@if (message != null)
+{
+    string additionalClass = "danger";
+    if (message.Type == MessageType.Siker)
+    {
+        additionalClass = "success";
+    }
+<div class="alert alert-@additionalClass d-flex justify-content-between">
+    @message.Text
+    <button class="btn btn-outline-info" type="submit" @onclick="@(()=>message = null)">X</button>
+</div>
+}
+@code {
+    Part partModel;
+    List<Part> activeParts;
+    bool hozzaadas = true;
+    UserMessage message;
+
+    protected override void OnInitialized()
+    {
+        partModel = new Part();
+        activeParts = dbService.GetAllParts();
+    }
+
+    private void SetName(string megnevezes)
+    {
+        message = null;
+        partModel.Megnevezes = megnevezes;
+    }
+    private void SetWeight(string sulyString)
+    {
+        message = null;
+        int _suly = 0;
+        if (int.TryParse(sulyString, out _suly))
+        {
+            partModel.SulyGrammban = _suly;
+        }
+    }
+    private void SetCost(string arString)
+    {
+        message = null;
+        int _ar = 0;
+        if (int.TryParse(arString, out _ar))
+        {
+            partModel.Ar = _ar;
+        }
+    }
+
+    private void SelectedStationChanged(ChangeEventArgs e)
+    {
+        message = null;
+        if (e.Value.ToString() != "base")
+        {
+            partModel = activeParts.FirstOrDefault(x => x.Id.ToString() == e.Value.ToString());
+            hozzaadas = false;
+        }
+        else
+        {
+            partModel = new Part();
+            hozzaadas = true;
+        }
+    }
+
+    public void Delete()
+    {
+        string name = partModel.Megnevezes;
+        dbService.DeletePart(partModel.Id);
+        activeParts = dbService.GetAllParts();
+        partModel = new Part();
+        message = new UserMessage(name + " sikeresen törölve az adatbázisból!", MessageType.Siker);
+    }
+
+    public void HandleValidSubmit()
+    {
+        dbService.AddOrUpdatePart(partModel);
+        if (hozzaadas)
+        {
+            message = new UserMessage(partModel.Megnevezes + " sikeresen hozzáadva az adatbázishoz!", MessageType.Siker);
+            partModel = new Part();
+        }
+        else
+        {
+            message = new UserMessage(partModel.Megnevezes + " sikeresen módosítva az adatbázisban!", MessageType.Siker);
+        }
+        activeParts = dbService.GetAllParts();
+    }
+
+    public void HandleInValidSubmit()
+    {
+        message = null;
+    }
+}
