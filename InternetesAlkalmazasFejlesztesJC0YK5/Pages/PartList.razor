@@ -1,0 +1,101 @@
+﻿@page "/alkatreszlista" 
+@using InternetesAlkalmazasFejlesztesJC0YK5.Data
+@inject ApplicationDbService dbService
+<h3>Alkatrészek listája</h3>
+
+<h5>Rendezés módja</h5>
+<select class="form-control selectpicker" style="max-width:300px; display:inline" @onchange=@SelectedOrderChanged>
+    @foreach (var rendezes in Rendezesek)
+    {
+        <option value="@rendezes">@rendezes</option>
+    }
+</select>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Név</th>
+            <th>Súly (gramm)</th>
+            <th>Ár (Ft)</th>
+            <th>Termékben</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var part in activeParts)
+        {
+        <tr>
+            <td><a href="@(CreateLink(part.Id))">@(part.Megnevezes)</a></td>
+            <td>@(part.SulyGrammban)</td>
+            <td>@(part.Ar)</td>
+            <td>
+                @{
+                    var dict = GetProductNameOfPart(part);
+                    foreach (var item in dict)
+                    {
+                        <a href="@(item.Value)" style="margin-right:5px">@(item.Key)</a>
+                    }
+                }
+            </td>
+            
+        </tr>
+                }
+    </tbody>
+</table>
+
+@code {
+    List<Part> activeParts;
+    List<Product> products;
+    List<ProductPart> productParts;
+    List<string> Rendezesek;
+    string kivalasztottRendezes = "ABC";
+
+    protected override void OnInitialized()
+    {
+        activeParts = dbService.GetAllParts();
+        products = dbService.GetAllProducts();
+        productParts = dbService.GetAllPartProduct();
+        Rendezesek = new List<string>();
+        Rendezesek.Add("ABC");
+        Rendezesek.Add("Ár");
+        Rendezesek.Add("Súly");
+        OrderTheParts();
+    }
+
+    private Dictionary<string,string> GetProductNameOfPart(Part part)
+    {
+        List<ProductPart> productPartsOfProduct = productParts.Where(x => x.AlkatreszId == part.Id).ToList();
+        Dictionary<string, string> result = new Dictionary<string, string>();
+        foreach (var pp in productPartsOfProduct)
+        {
+            var product = products.FirstOrDefault(x => x.Id == pp.TermekId);
+            result.Add(product.Megnevezes, $"/termekkezeles/{product.Id}");
+        }
+        return result;
+    }
+
+    private void SelectedOrderChanged(ChangeEventArgs e)
+    {
+        kivalasztottRendezes = e.Value.ToString();
+        OrderTheParts();
+    }
+    private void OrderTheParts()
+    {
+        if (kivalasztottRendezes == "ABC")
+        {
+            activeParts = activeParts.OrderBy(x => x.Megnevezes).ToList();
+        }
+        else if(kivalasztottRendezes == "Ár")
+        {
+            activeParts = activeParts.OrderBy(x => x.Ar).ToList();
+        }
+        else
+        {
+            activeParts = activeParts.OrderBy(x => x.SulyGrammban).ToList();
+        }
+    }
+    private string CreateLink(int id)
+    {
+        string link = $"/alkatreszkezeles/{id}";
+        return link;
+    }
+}

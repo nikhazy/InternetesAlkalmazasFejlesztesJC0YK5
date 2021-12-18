@@ -21,5 +21,6 @@ namespace InternetesAlkalmazasFejlesztesJC0YK5.Data
         [Required]
         public int Ar { get; set; }
 
+
     }
 }

@@ -1,16 +1,23 @@
-﻿@page "/termekkezeles"
+﻿@page "/termekkezeles/{id}"
 @using InternetesAlkalmazasFejlesztesJC0YK5.Data
 @inject ApplicationDbService dbService
 
 <h3>Termék kezelése</h3>
 
 <h5>Meglévő termék kiválasztása:</h5>
-<div style="display: flex; justify-content: space-between">
-    <select class="form-control selectpicker" style="max-width:300px; display:inline" @onchange=@SelectedStationChanged>
+<div style="display: flex; justify-content: space-between; margin-bottom:10px">
+    <select class="form-control selectpicker" style="max-width:300px; display:inline" @onchange=@SelectedProductChanged>
         <option value="base">-Új termék hozzáadása-</option>
-        @foreach (var part in activeParts)
+        @foreach (var prod in activeProducts)
         {
-            <option value="@part.Id">@part.Megnevezes</option>
+            if (prod.Id == productModel.Id)
+            {
+                <option value="@prod.Id" selected>@prod.Megnevezes</option>
+            }
+            else
+            {
+                <option value="@prod.Id">@prod.Megnevezes</option>
+            }
         }
     </select>
     @if (!hozzaadas)
@@ -28,6 +35,14 @@
             <label for="megnevezes" style="font-weight:bold">Megnevezés:</label>
             <input class="form-control" style="text-align:center" type="text" name="megnevezes" value="@productModel.Megnevezes" @onchange="(x=> SetName(x.Value.ToString()))" />
         </div>
+        <div>
+            <label for="suly" style="font-weight:bold">Súly (gramm):</label>
+            <input class="form-control" style="text-align:center" type="text" name="suly" value="@productModel.SulyGrammban" readonly />
+        </div>
+        <div>
+            <label for="ar" style="font-weight:bold">Ár (Ft):</label>
+            <input class="form-control" style="text-align:center" type="text" name="ar" value="@productModel.Ar" readonly />
+        </div>
     </div>
     @if (hozzaadas)
     {
@@ -39,12 +54,64 @@
     }
 </EditForm>
 <!--Termékhez tartozó alkatrészek-->
-<div>
-    @foreach (var part in partsOfTheProduct)
-    {
+@if (productModel != null && productModel.Id != 0)
+{
+<table class="table" style="margin-top:20px">
+    <thead>
+        <tr>
+            <th>
+                Megnevezés
+            </th>
+            <th>
+                Mennyiség
+            </th>
+            <th>
+                Akció
+            </th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var productPart in productParts)
+        {
+            <tr>
+                <td>@(everyPart.FirstOrDefault(x=>x.Id==productPart.AlkatreszId).Megnevezes)</td>
+                <td><input class="form-control" style="text-align: center" type="text" name="mennyiseg" value="@productPart.Mennyiseg" @onchange="(x=> SetAmount(x.Value.ToString(),productPart.AlkatreszId))" /></td>
+                <td><button class="btn btn-danger" type="submit" @onclick="(()=>DeleteProductPart(productPart))">Törlés</button></td>
+            </tr>
+        }
+    <tr>
+        @if (availableParts.Count > 0)
+        {
+            <td>
+                <select class="form-control selectpicker" style="max-width:300px; display:inline" @onchange=@SelectedPartChanged>
+                    <option value="base">-Termék kiválasztása-</option>
+                    @foreach (var part in availableParts)
+                    {
+                        if (part.Id == newPPModel.AlkatreszId)
+                        {
 
-    }
-</div>
+                            <option value="@part.Id" selected>@part.Megnevezes</option>
+                        }
+                        else
+                        {
+                            <option value="@part.Id">@part.Megnevezes</option>
+                        }
+                    }
+                </select>
+            </td>
+            <td><input class="form-control" style="text-align:center" type="text" name="mennyiseg" value="@newPPModel.Mennyiseg" @onchange="(x=> SetNewPPAmount(x.Value.ToString()))" /></td>
+            <td><button class="btn btn-primary" type="submit" @onclick="HandlePPSubmit">Hozzáadás</button></td>
+        }
+        else
+        {
+            <td>Nincs rendelkezésre álló alkatrész!</td>
+        }
+    </tr>
+
+        </tbody>
+    </table>
+}
+
 
 @if (message != null)
 {
@@ -59,16 +126,67 @@
     </div>
 }
 @code {
+    [Parameter]
+    public string id { get; set; }
+
     Product productModel;
-    List<Product> activeParts;
+    List<Product> activeProducts;
+    List<Part> everyPart;
     bool hozzaadas = true;
     UserMessage message;
-    List<Part> partsOfTheProduct;
+    List<ProductPart> productParts;
+    List<Part> availableParts;
+    ProductPart newPPModel;
 
     protected override void OnInitialized()
     {
-        productModel = new Product();
-        activeParts = dbService.GetAllProducts();
+        int _id = 0;
+        if (int.TryParse(id, out _id))
+        {
+            if(_id != 0)
+            {
+                productModel = dbService.GetProductById(_id);
+                hozzaadas = false;
+            }
+            else
+            {
+                productModel = new Product();
+            }
+        }
+        else
+        {
+            productModel = new Product();
+        }
+        newPPModel = new ProductPart();
+        activeProducts = dbService.GetAllProducts();
+        everyPart = dbService.GetAllParts();
+    }
+
+    private void RefreshData()
+    {
+        if(productModel != null && productModel.Id != 0)
+        {
+            activeProducts = dbService.GetAllProducts();
+            everyPart = dbService.GetAllParts();
+            productParts = dbService.GetPartsOfTheProduct(productModel.Id);
+            availableParts = new List<Part>();
+            foreach (var part in everyPart)
+            {
+                bool elerheto = true;
+                foreach (var productPart in productParts)
+                {
+                    if(productPart.AlkatreszId == part.Id)
+                    {
+                        elerheto = false;
+                        break;
+                    }
+                }
+                if (elerheto)
+                {
+                    availableParts.Add(part);
+                }
+            }
+        }
     }
 
     private void SetName(string megnevezes)
@@ -77,29 +195,81 @@
         productModel.Megnevezes = megnevezes;
     }
 
-    private void SelectedStationChanged(ChangeEventArgs e)
+    private void SetAmount(string amount, int partId)
+    {
+        message = null;
+        int _amount = 0;
+        if (int.TryParse(amount, out _amount) && _amount > 0)
+        {
+            var pp = productParts.FirstOrDefault(x => x.AlkatreszId == partId);
+            pp.Mennyiseg = _amount;
+            dbService.AddOrUpdateProductParts(pp);
+        }
+        StateHasChanged();
+    }
+
+    private void SetNewPPAmount(string amount)
+    {
+        message = null;
+        int _amount = 0;
+        if (int.TryParse(amount, out _amount))
+        {
+            newPPModel.Mennyiseg = _amount;
+        }
+    }
+
+    private void SelectedProductChanged(ChangeEventArgs e)
     {
         message = null;
         if (e.Value.ToString() != "base")
         {
-            productModel = activeParts.FirstOrDefault(x => x.Id.ToString() == e.Value.ToString());
+            productModel = activeProducts.FirstOrDefault(x => x.Id.ToString() == e.Value.ToString());
             hozzaadas = false;
+            RefreshData();
+            newPPModel = new ProductPart();
         }
         else
         {
             productModel = new Product();
+            newPPModel = new ProductPart();
             hozzaadas = true;
+        }
+    }
+    private void SelectedPartChanged(ChangeEventArgs e)
+    {
+        message = null;
+        if (e.Value.ToString() != "base")
+        {
+            newPPModel = new ProductPart();
+            newPPModel.TermekId = productModel.Id;
+            newPPModel.AlkatreszId = int.Parse(e.Value.ToString());
+        }
+        else
+        {
+            newPPModel = new ProductPart();
         }
     }
 
     public void Delete()
     {
         string name = productModel.Megnevezes;
-        dbService.DeleteProduct(productModel.Id);
-        activeParts = dbService.GetAllProducts();
-        productModel = new Product();
-        message = new UserMessage(name + " sikeresen törölve az adatbázisból!", MessageType.Siker);
+        if (dbService.DeleteProduct(productModel.Id))
+        {
+            message = new UserMessage(name + " sikeresen törölve az adatbázisból!", MessageType.Siker);
+            productModel = new Product();
+        }
+        else
+        {
+            message = new UserMessage(name + " nem törölhető, mert alkatrész van hozzá rendelve!", MessageType.Hiba);
+        }
+        activeProducts = dbService.GetAllProducts();
         hozzaadas = true;
+        RefreshData();
+    }
+    public void DeleteProductPart(ProductPart productPart)
+    {
+        dbService.DeleteProductPart(productPart);
+        RefreshData();
     }
 
     public void HandleValidSubmit()
@@ -109,16 +279,33 @@
         {
             message = new UserMessage(productModel.Megnevezes + " sikeresen hozzáadva az adatbázishoz!", MessageType.Siker);
             productModel = new Product();
+            RefreshData();
         }
         else
         {
             message = new UserMessage(productModel.Megnevezes + " sikeresen módosítva az adatbázisban!", MessageType.Siker);
         }
-        activeParts = dbService.GetAllProducts();
+        activeProducts = dbService.GetAllProducts();
     }
 
     public void HandleInValidSubmit()
     {
         message = null;
     }
+
+    public void HandlePPSubmit()
+    {
+        if(newPPModel.AlkatreszId > 0 && newPPModel.TermekId > 0 && newPPModel.Mennyiseg > 0)
+        {
+            dbService.AddOrUpdateProductParts(newPPModel);
+            message = new UserMessage(productModel.Megnevezes + " sikeresen hozzáadva az adatbázishoz!", MessageType.Siker);
+            newPPModel = new ProductPart();
+            RefreshData();
+        }
+        else
+        {
+            message = new UserMessage("Alkatrész termékhez rögzítése nem történt meg!", MessageType.Hiba);
+        }
+    }
+
 }

@@ -1,4 +1,4 @@
-﻿@page "/alkatreszkezeles"
+﻿@page "/alkatreszkezeles/{id}"
 @using InternetesAlkalmazasFejlesztesJC0YK5.Data
 @inject ApplicationDbService dbService
 
@@ -10,7 +10,14 @@
         <option value="base">-Új alkatrész hozzáadása-</option>
         @foreach (var part in activeParts)
         {
-            <option value="@part.Id">@part.Megnevezes</option>
+            if (part.Id == partModel.Id)
+            {
+                <option value="@part.Id" selected>@part.Megnevezes</option>
+            }
+            else
+            {
+                <option value="@part.Id">@part.Megnevezes</option>
+            }
         }
     </select>
     @if (!hozzaadas)
@@ -58,6 +65,9 @@
 </div>
 }
 @code {
+    [Parameter]
+    public string id { get; set; }
+
     Part partModel;
     List<Part> activeParts;
     bool hozzaadas = true;
@@ -65,8 +75,26 @@
 
     protected override void OnInitialized()
     {
-        partModel = new Part();
-        activeParts = dbService.GetAllParts();
+        int _id = 0;
+        if(int.TryParse(id, out _id))
+        {
+            if (_id != 0)
+            {
+                partModel = dbService.GetPartById(_id);
+                activeParts = dbService.GetAllParts();
+                hozzaadas = false;
+            }
+            else
+            {
+                partModel = new Part();
+                activeParts = dbService.GetAllParts();
+            }
+        }
+        else
+        {
+            partModel = new Part();
+            activeParts = dbService.GetAllParts();
+        }
     }
 
     private void SetName(string megnevezes)
@@ -111,10 +139,16 @@
     public void Delete()
     {
         string name = partModel.Megnevezes;
-        dbService.DeletePart(partModel.Id);
+        if (dbService.DeletePart(partModel.Id))
+        {
+            message = new UserMessage(name + " sikeresen törölve az adatbázisból!", MessageType.Siker);
+            partModel = new Part();
+        }
+        else
+        {
+            message = new UserMessage(name + " nem törölhető, mert be van szerelve egy termékbe!", MessageType.Hiba);
+        }
         activeParts = dbService.GetAllParts();
-        partModel = new Part();
-        message = new UserMessage(name + " sikeresen törölve az adatbázisból!", MessageType.Siker);
     }
 
     public void HandleValidSubmit()

@@ -9,10 +9,12 @@ namespace InternetesAlkalmazasFejlesztesJC0YK5.Data
     public class ProductPart
     {
         [Key]
+        public int Id { get; set; }
+        [Required]
         public int TermekId { get; set; }
 
         [Required]
-        public string AlkatreszId { get; set; }
+        public int AlkatreszId { get; set; }
 
         [Required]
         public int Mennyiseg { get; set; }
